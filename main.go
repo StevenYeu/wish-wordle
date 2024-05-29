@@ -21,7 +21,7 @@ func initialModel() model {
 	for i := range a {
 		a[i] = make([]string, 5)
 		for j := range a[i] {
-			a[i][j] = StyleLetter(" ") 
+			a[i][j] = StyleLetter(" ")
 		}
 	}
 
@@ -30,6 +30,10 @@ func initialModel() model {
 
 func (m model) Init() tea.Cmd {
 	return nil
+}
+
+func (m model) Get(row, col int) string {
+    return m.Board[row][col]
 }
 
 func (m *model) Delete() {
@@ -45,7 +49,7 @@ func (m *model) Delete() {
 
 func StyleLetter(letter string) string {
 	var style = lipgloss.NewStyle().
-        PaddingLeft(1)
+		PaddingLeft(1)
 
 	return style.Render(letter)
 }
@@ -59,11 +63,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "backspace":
-			if currentIndex >= 0 {
+            currentChar := m.Get(currnetTry,currentIndex)
+            if currentChar != StyleLetter(" ") && currentIndex >= 0 {
 				m.Board[currnetTry][currentIndex] = StyleLetter(" ")
-			}
-			m.Delete()
-			return m, nil
+                m.Delete()
+                return m, nil
+            } 
+            prevIndex := currentIndex - 1
+            if prevIndex >= 0 {
+				m.Board[currnetTry][prevIndex] = StyleLetter(" ")
+                m.Delete()
+                return m, nil
+            }
+
+            return m, nil
+
 		case "a":
 			if currentIndex < len(m.Board[currnetTry]) {
 				m.Board[currnetTry][currentIndex] = StyleLetter(strings.ToUpper(strMsg))
