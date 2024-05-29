@@ -3,56 +3,92 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 )
 
 type model struct {
-	choices     []string
-	cursor      int
-	selected    map[int]struct{}
-	secret      string
-	secretIndex int
-	win         bool
+	Board [][]string
+	Tries int
+	index int
 }
 
 func initialModel() model {
-	return model{
-		choices:     []string{"Grapes", "Oranges", "Berries", "Apples", "Peaches"},
-		secretIndex: 3,
-		selected:    make(map[int]struct{}),
-		secret:      "Apples",
+	a := make([][]string, 6)
+	for i := range a {
+		a[i] = make([]string, 5)
+		for j := range a[i] {
+			a[i][j] = StyleLetter(" ") 
+		}
 	}
-} 
+
+	return model{Board: a}
+}
 
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func (m *model) Delete() {
+
+	if m.index >= 0 {
+		m.index--
+	}
+
+	if m.index < 0 {
+		m.index = 0
+	}
+}
+
+func StyleLetter(letter string) string {
+	var style = lipgloss.NewStyle().
+        PaddingLeft(1)
+
+	return style.Render(letter)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	currnetTry := m.Tries
+	currentIndex := m.index
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-
-		case "ctrl+c", "q":
+		switch strMsg := msg.String(); strMsg {
+		case "ctrl+c":
 			return m, tea.Quit
-		case "up", "k":
-			m.cursor--
-			m.cursor = (m.cursor%len(m.choices) + len(m.choices)) % len(m.choices)
-		case "down", "j":
-			m.cursor++
-			m.cursor = m.cursor % len(m.choices)
-		case "enter", " ":
-			m.selected[m.cursor] = struct{}{}
-			if m.choices[m.cursor] == m.secret {
-				m.win = true
-				return m, tea.Quit
+		case "backspace":
+			if currentIndex >= 0 {
+				m.Board[currnetTry][currentIndex] = StyleLetter(" ")
 			}
-
+			m.Delete()
+			return m, nil
+		case "a":
+			if currentIndex < len(m.Board[currnetTry]) {
+				m.Board[currnetTry][currentIndex] = StyleLetter(strings.ToUpper(strMsg))
+				m.index++
+			}
+			if m.index >= len(m.Board[currnetTry]) {
+				m.index--
+			}
+			return m, nil
 		}
 	}
 	return m, nil
+}
+
+func (m model) RenderBoard() string {
+	t := table.New().Width(35).
+		Border(lipgloss.ThickBorder()).
+		BorderRow(true).
+		BorderColumn(true).
+		Rows(m.Board...)
+		// StyleFunc(func(row, col int) lipgloss.Style {
+		// 	return lipgloss.NewStyle().Padding(0, 1)
+		// })
+
+	return t.Render()
 }
 
 func (m model) View() string {
@@ -60,38 +96,17 @@ func (m model) View() string {
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("#908caa"))
 	s := style.Render("Select the secret word")
+	s += "\n"
 
-	s += "\n\n"
-	for i, choice := range m.choices {
+	s += m.RenderBoard()
 
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
-		}
-		choiceText := choice
-		checked := "[ ]" // not selected
-		style := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ccfd8"))
-		if _, ok := m.selected[i]; ok {
-			checked = style.Render("[\u2713]")
-			if i != m.secretIndex {
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("#eb6f92"))
-				checked = style.Render("[x]")
-			}
-			choiceText = style.Render(choice)
-		}
-		s += fmt.Sprintf("%s %s %s\n", cursor, checked, choiceText)
-	}
+	s += "\nPress ctrl+c to quit.\n"
 
-	s += "\nPress q to quit.\n"
-
-	if m.win {
-		s += "You selected the right word!\n"
-	}
 	return s
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
